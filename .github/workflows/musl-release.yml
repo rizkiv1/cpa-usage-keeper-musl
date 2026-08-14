@@ -1,0 +1,65 @@
+name: Build Linux musl
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v6
+
+      - name: Build using upstream Dockerfile
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          target: go-builder
+          platforms: linux/amd64
+          build-args: |
+            VERSION=test
+          outputs: type=local,dest=./build
+
+      - name: Check binary
+        run: |
+          set -eux
+
+          file build/cpa-usage-keeper
+
+          echo "=== interpreter ==="
+          readelf -l build/cpa-usage-keeper | grep interpreter
+
+          echo "=== dependencies ==="
+          ldd build/cpa-usage-keeper || true
+
+      - name: Package
+        run: |
+          set -eux
+
+          VERSION="test"
+          PACKAGE="cpa-usage-keeper_${VERSION}_linux_amd64"
+
+          mkdir -p "${PACKAGE}/data"
+
+          cp build/cpa-usage-keeper "${PACKAGE}/"
+          cp .env.example "${PACKAGE}/"
+          cp README.md "${PACKAGE}/"
+          cp README.zh.md "${PACKAGE}/"
+          cp LICENSE "${PACKAGE}/"
+          cp deploy/linux/cpa-usage-keeper.service "${PACKAGE}/"
+
+          tar -czf "${PACKAGE}.tar.gz" "${PACKAGE}"
+
+          echo "=== PACKAGE ==="
+          tar tf "${PACKAGE}.tar.gz"
+
+      - name: Upload tarball
+        uses: actions/upload-artifact@v6
+        with:
+          name: cpa-usage-keeper-linux-amd64-musl
+          path: cpa-usage-keeper_test_linux_amd64.tar.gz
