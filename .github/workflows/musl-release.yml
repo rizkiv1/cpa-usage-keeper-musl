@@ -14,16 +14,18 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v6
 
-      - name: Build using upstream Dockerfile
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ./Dockerfile
-          target: go-builder
-          platforms: linux/amd64
-          build-args: |
-            VERSION=test
-          outputs: type=local,dest=./build
+
+      - name: Build binary in Docker
+        run: |
+          docker build \
+            --target go-builder \
+            --build-arg VERSION=test \
+            --platform linux/amd64 \
+            -t cpa-builder .
+          id=$(docker create cpa-builder)
+          mkdir -p build
+          docker cp "$id:/out/cpa-usage-keeper" build/
+          docker rm "$id"
 
       - name: Check binary
         run: |
